@@ -522,7 +522,7 @@ mod registry {
         let mut remaining_accounts: &[AccountInfo] = ctx.remaining_accounts;
         let cpi_program = ctx.accounts.lockup_program.clone();
         let cpi_accounts =
-            CreateVesting::try_accounts(ctx.accounts.lockup_program.key, &mut remaining_accounts)?;
+            CreateVesting::try_accounts(ctx.accounts.lockup_program.key, &mut remaining_accounts, &[])?;
         let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
         lockup::cpi::create_vesting(
             cpi_ctx,
@@ -758,7 +758,7 @@ pub struct DepositLocked<'info> {
     // Program specific.
     registry: ProgramState<'info, Registry>,
     registrar: ProgramAccount<'info, Registrar>,
-    #[account(belongs_to = registrar, has_one = beneficiary)]
+    #[account(has_one = registrar, has_one = beneficiary)]
     member: ProgramAccount<'info, Member>,
     #[account(signer)]
     beneficiary: AccountInfo<'info>,
@@ -774,7 +774,7 @@ pub struct Stake<'info> {
     pool_mint: CpiAccount<'info, Mint>,
 
     // Member.
-    #[account(mut, has_one = beneficiary, belongs_to = registrar)]
+    #[account(mut, has_one = beneficiary, has_one = registrar)]
     member: ProgramAccount<'info, Member>,
     #[account(signer)]
     beneficiary: AccountInfo<'info>,
@@ -813,7 +813,7 @@ pub struct StartUnstake<'info> {
     // Member.
     #[account(init)]
     pending_withdrawal: ProgramAccount<'info, PendingWithdrawal>,
-    #[account(has_one = beneficiary, belongs_to = registrar)]
+    #[account(has_one = beneficiary, has_one = registrar)]
     member: ProgramAccount<'info, Member>,
     #[account(signer)]
     beneficiary: AccountInfo<'info>,
@@ -843,11 +843,11 @@ pub struct StartUnstake<'info> {
 pub struct EndUnstake<'info> {
     registrar: ProgramAccount<'info, Registrar>,
 
-    #[account(belongs_to = registrar, has_one = beneficiary)]
+    #[account(has_one = registrar, has_one = beneficiary)]
     member: ProgramAccount<'info, Member>,
     #[account(signer)]
     beneficiary: AccountInfo<'info>,
-    #[account(mut, belongs_to = registrar, belongs_to = member, "!pending_withdrawal.burned")]
+    #[account(mut, has_one = registrar, has_one = member, "!pending_withdrawal.burned")]
     pending_withdrawal: ProgramAccount<'info, PendingWithdrawal>,
 
     // If we had ordered maps implementing Accounts we could do a constraint like
@@ -878,7 +878,7 @@ pub struct Withdraw<'info> {
     // Stake instance.
     registrar: ProgramAccount<'info, Registrar>,
     // Member.
-    #[account(belongs_to = registrar, has_one = beneficiary)]
+    #[account(has_one = registrar, has_one = beneficiary)]
     member: ProgramAccount<'info, Member>,
     #[account(signer)]
     beneficiary: AccountInfo<'info>,
@@ -931,7 +931,7 @@ pub struct WithdrawLocked<'info> {
     // Program specific.
     registry: ProgramState<'info, Registry>,
     registrar: ProgramAccount<'info, Registrar>,
-    #[account(belongs_to = registrar, has_one = beneficiary)]
+    #[account(has_one = registrar, has_one = beneficiary)]
     member: ProgramAccount<'info, Member>,
     #[account(signer)]
     beneficiary: AccountInfo<'info>,
@@ -1003,7 +1003,7 @@ pub struct ClaimRewardCommon<'info> {
     // Stake instance.
     registrar: ProgramAccount<'info, Registrar>,
     // Member.
-    #[account(mut, belongs_to = registrar, has_one = beneficiary)]
+    #[account(mut, has_one = registrar, has_one = beneficiary)]
     member: ProgramAccount<'info, Member>,
     #[account(signer)]
     beneficiary: AccountInfo<'info>,
@@ -1012,7 +1012,7 @@ pub struct ClaimRewardCommon<'info> {
     #[account("BalanceSandbox::from(&balances_locked) == member.balances_locked")]
     balances_locked: BalanceSandboxAccounts<'info>,
     // Vendor.
-    #[account(belongs_to = registrar, has_one = vault)]
+    #[account(has_one = registrar, has_one = vault)]
     vendor: ProgramAccount<'info, RewardVendor>,
     #[account(mut)]
     vault: AccountInfo<'info>,
@@ -1035,7 +1035,7 @@ pub struct ExpireReward<'info> {
     // Staking instance globals.
     registrar: ProgramAccount<'info, Registrar>,
     // Vendor.
-    #[account(mut, belongs_to = registrar, has_one = vault, has_one = expiry_receiver)]
+    #[account(mut, has_one = registrar, has_one = vault, has_one = expiry_receiver)]
     vendor: ProgramAccount<'info, RewardVendor>,
     #[account(mut)]
     vault: CpiAccount<'info, TokenAccount>,
