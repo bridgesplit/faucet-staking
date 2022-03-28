@@ -9,14 +9,14 @@ use crate::{state::*, errors::*, claim_reward::*};
 pub struct Stake<'info> {
     // Global accounts for the staking instance.
     #[account(has_one = pool_mint, has_one = reward_event_q)]
-    registrar: Account<'info, Registrar>,
-    reward_event_q: Account<'info, RewardQueue>,
+    registrar: Box<Account<'info, Registrar>>,
+    reward_event_q: Box<Account<'info, RewardQueue>>,
     #[account(mut)]
-    pool_mint: Account<'info, Mint>,
+    pool_mint: Box<Account<'info, Mint>>,
 
     // Member.
     #[account(mut, has_one = beneficiary, has_one = registrar)]
-    member: Account<'info, Member>,
+    member: Box<Account<'info, Member>>,
     #[account(signer)]
     beneficiary: AccountInfo<'info>,
     #[account("BalanceSandbox::from(&balances) == member.balances")]

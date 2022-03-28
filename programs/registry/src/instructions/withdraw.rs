@@ -6,14 +6,14 @@ use crate::state::*;
 #[derive(Accounts)]
 pub struct Withdraw<'info> {
     // Stake instance.
-    registrar: Account<'info, Registrar>,
+    registrar: Box<Account<'info, Registrar>>,
     // Member.
     #[account(has_one = registrar, has_one = beneficiary)]
-    member: Account<'info, Member>,
+    member: Box<Account<'info, Member>>,
     #[account(signer)]
     beneficiary: AccountInfo<'info>,
     #[account(mut, "vault.to_account_info().key == &member.balances.vault")]
-    vault: Account<'info, TokenAccount>,
+    vault: Box<Account<'info, TokenAccount>>,
     #[account(
         seeds = [
             registrar.to_account_info().key.as_ref(),

@@ -9,11 +9,11 @@ pub struct EndUnstake<'info> {
     registrar: Account<'info, Registrar>,
 
     #[account(has_one = registrar, has_one = beneficiary)]
-    member: Account<'info, Member>,
+    member: Box<Account<'info, Member>>,
     #[account(signer)]
     beneficiary: AccountInfo<'info>,
     #[account(mut, has_one = registrar, has_one = member, "!pending_withdrawal.burned")]
-    pending_withdrawal: Account<'info, PendingWithdrawal>,
+    pending_withdrawal: Box<Account<'info, PendingWithdrawal>>,
 
     // If we had ordered maps implementing Accounts we could do a constraint like
     // balances.get(pending_withdrawal.balance_id).vault == vault.key.

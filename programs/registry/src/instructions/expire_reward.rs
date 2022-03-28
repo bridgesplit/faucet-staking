@@ -6,12 +6,12 @@ use crate::{state::*, errors::*};
 #[derive(Accounts)]
 pub struct ExpireReward<'info> {
     // Staking instance globals.
-    registrar: Account<'info, Registrar>,
+    registrar: Box<Account<'info, Registrar>>,
     // Vendor.
     #[account(mut, has_one = registrar, has_one = vault, has_one = expiry_receiver)]
-    vendor: Account<'info, RewardVendor>,
+    vendor: Box<Account<'info, RewardVendor>>,
     #[account(mut)]
-    vault: Account<'info, TokenAccount>,
+    vault: Box<Account<'info, TokenAccount>>,
     #[account(
         seeds = [
             registrar.to_account_info().key.as_ref(),
