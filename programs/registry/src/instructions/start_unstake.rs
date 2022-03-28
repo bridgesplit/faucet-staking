@@ -1,21 +1,27 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token::*;
+
+
+use crate::{state::*, errors::*, claim_reward::*, stake::*};
+
 
 #[derive(Accounts)]
 pub struct StartUnstake<'info> {
     // Stake instance globals.
     #[account(has_one = reward_event_q, has_one = pool_mint)]
-    registrar: ProgramAccount<'info, Registrar>,
-    reward_event_q: ProgramAccount<'info, RewardQueue>,
+    registrar: Account<'info, Registrar>,
+    reward_event_q: Account<'info, RewardQueue>,
     #[account(mut)]
     pool_mint: AccountInfo<'info>,
-
     // Member.
-    #[account(init)]
-    pending_withdrawal: ProgramAccount<'info, PendingWithdrawal>,
+    #[account(init,
+    payer = beneficiary,
+    space = std::mem::size_of::<PendingWithdrawal>())]
+    pending_withdrawal: Account<'info, PendingWithdrawal>,
     #[account(has_one = beneficiary, has_one = registrar)]
-    member: ProgramAccount<'info, Member>,
-    #[account(signer)]
-    beneficiary: AccountInfo<'info>,
+    member:Account<'info, Member>,
+    #[account(mut)]
+    beneficiary: Signer<'info>,
     #[account("BalanceSandbox::from(&balances) == member.balances")]
     balances: BalanceSandboxAccounts<'info>,
     #[account("BalanceSandbox::from(&balances_locked) == member.balances_locked")]
@@ -27,13 +33,15 @@ pub struct StartUnstake<'info> {
             registrar.to_account_info().key.as_ref(),
             member.to_account_info().key.as_ref(),
             &[member.nonce],
-        ]
+        ],
+        bump
     )]
     member_signer: AccountInfo<'info>,
 
     // Misc.
-    #[account("token_program.key == &token::ID")]
+    #[account("token_program.key == &anchor_spl::token::ID")]
     token_program: AccountInfo<'info>,
+    pub system_program: Program<'info, System>,
     clock: Sysvar<'info, Clock>,
     rent: Sysvar<'info, Rent>,
 }
@@ -65,14 +73,14 @@ pub fn handler(ctx: Context<StartUnstake>, spt_amount: u64, locked: bool) -> Res
     {
         let cpi_ctx = CpiContext::new_with_signer(
             ctx.accounts.token_program.clone(),
-            token::Burn {
+            Burn {
                 mint: ctx.accounts.pool_mint.to_account_info(),
                 to: balances.spt.to_account_info(),
                 authority: ctx.accounts.member_signer.to_account_info(),
             },
             member_signer,
         );
-        token::burn(cpi_ctx, spt_amount)?;
+        burn(cpi_ctx, spt_amount)?;
     }
 
         // Convert from stake-token units to mint-token units.
@@ -84,14 +92,14 @@ pub fn handler(ctx: Context<StartUnstake>, spt_amount: u64, locked: bool) -> Res
         {
             let cpi_ctx = CpiContext::new_with_signer(
                 ctx.accounts.token_program.clone(),
-                token::Transfer {
+                Transfer {
                     from: balances.vault_stake.to_account_info(),
                     to: balances.vault_pw.to_account_info(),
                     authority: ctx.accounts.member_signer.to_account_info(),
                 },
                 member_signer,
             );
-            token::transfer(cpi_ctx, token_amount)?;
+            transfer(cpi_ctx, token_amount)?;
         }
 
         // Print receipt.

@@ -1,9 +1,12 @@
 use anchor_lang::prelude::*;
 
+use crate::{state::*};
+
+
 #[derive(Accounts)]
 pub struct UpdateRegistrar<'info> {
     #[account(mut, has_one = authority)]
-    registrar: ProgramAccount<'info, Registrar>,
+    registrar: Account<'info, Registrar>,
     #[account(signer)]
     authority: AccountInfo<'info>,
 }

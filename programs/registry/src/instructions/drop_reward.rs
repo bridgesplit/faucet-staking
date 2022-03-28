@@ -1,26 +1,34 @@
 
+use anchor_lang::prelude::*;
+use anchor_spl::token::*;
+
+use crate::{state::*, errors::*};
+
+
 #[derive(Accounts)]
 pub struct DropReward<'info> {
     // Staking instance.
     #[account(has_one = reward_event_q, has_one = pool_mint)]
-    registrar: ProgramAccount<'info, Registrar>,
+    registrar: Account<'info, Registrar>,
     #[account(mut)]
-    reward_event_q: ProgramAccount<'info, RewardQueue>,
-    pool_mint: CpiAccount<'info, Mint>,
+    reward_event_q: Account<'info, RewardQueue>,
+    pool_mint: Account<'info, Mint>,
     // Vendor.
-    #[account(init)]
-    vendor: ProgramAccount<'info, RewardVendor>,
+    #[account(init,
+    payer = depositor_authority, space = 8 + std::mem::size_of::<RewardVendor>())]
+    vendor: Account<'info, RewardVendor>,
     #[account(mut)]
-    vendor_vault: CpiAccount<'info, TokenAccount>,
+    vendor_vault: Account<'info, TokenAccount>,
     // Depositor.
     #[account(mut)]
     depositor: AccountInfo<'info>,
-    #[account(signer)]
+    #[account(mut, signer)]
     depositor_authority: AccountInfo<'info>,
     // Misc.
-    #[account("token_program.key == &token::ID")]
+    #[account("token_program.key == &anchor_spl::token::ID")]
     token_program: AccountInfo<'info>,
     clock: Sysvar<'info, Clock>,
+    pub system_program: Program<'info, System>,
     rent: Sysvar<'info, Rent>,
 }
 
@@ -49,9 +57,9 @@ impl<'info> DropReward<'info> {
             ],
             ctx.program_id,
         )
-        .map_err(|_| ErrorCode::InvalidNonce)?;
+        .map_err(|_| CustomErrorCode::InvalidNonce)?;
         if vendor_signer != ctx.accounts.vendor_vault.owner {
-            return Err(ErrorCode::InvalidVaultOwner.into());
+            return Err(CustomErrorCode::InvalidVaultOwner.into());
         }
 
         Ok(())
@@ -69,32 +77,17 @@ impl<'info> DropReward<'info> {
         nonce: u8,
     ) -> Result<()> {
         if total < ctx.accounts.pool_mint.supply {
-            return Err(ErrorCode::InsufficientReward.into());
+            return Err(CustomErrorCode::InsufficientReward.into());
         }
         if ctx.accounts.clock.unix_timestamp >= expiry_ts {
-            return Err(ErrorCode::InvalidExpiry.into());
+            return Err(CustomErrorCode::InvalidExpiry.into());
         }
-        if ctx.accounts.registrar.to_account_info().key == &fida_registrar::ID {
-            if ctx.accounts.vendor_vault.mint != fida_mint::ID {
-                return Err(ErrorCode::InvalidMint.into());
-            }
-            if total < FIDA_MIN_REWARD {
-                return Err(ErrorCode::InsufficientReward.into());
-            }
-        } else if ctx.accounts.registrar.to_account_info().key == &srm_registrar::ID
-            || ctx.accounts.registrar.to_account_info().key == &msrm_registrar::ID
-        {
-            if ctx.accounts.vendor_vault.mint != srm_mint::ID {
-                return Err(ErrorCode::InvalidMint.into());
-            }
-            if total < SRM_MIN_REWARD {
-                return Err(ErrorCode::InsufficientReward.into());
-            }
-        } else {
-            // TODO: in a future major version upgrade. Add the amount + mint
-            //       to the registrar so that one can remove the hardcoded
-            //       variables.
-            solana_program::msg!("Reward amount not constrained. Please open a pull request.");
+
+        if total < ctx.accounts.registrar.minimum_reward_amount {
+            return Err(CustomErrorCode::InsufficientReward.into());
+        }
+        if ctx.accounts.vendor_vault.mint != ctx.accounts.registrar.reward_mint{
+            return Err(CustomErrorCode::InvalidMint.into());
         }
         if let RewardVendorKind::Locked {
             start_ts,
@@ -103,12 +96,12 @@ impl<'info> DropReward<'info> {
         } = kind
         {
             if !lockup::is_valid_schedule(start_ts, end_ts, period_count) {
-                return Err(ErrorCode::InvalidVestingSchedule.into());
+                return Err(CustomErrorCode::InvalidVestingSchedule.into());
             }
         }
 
         // Transfer funds into the vendor's vault.
-        token::transfer(ctx.accounts.into(), total)?;
+        transfer(ctx.accounts.into(), total)?;
 
         // Add the event to the reward queue.
         let reward_q = &mut ctx.accounts.reward_event_q;

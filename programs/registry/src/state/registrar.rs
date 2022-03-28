@@ -1,6 +1,5 @@
 use anchor_lang::prelude::*;
 
-
 #[account]
 pub struct Registrar {
     /// Priviledged account.
@@ -26,4 +25,10 @@ pub struct Registrar {
     /// The amount of tokens (not decimal) that must be staked to get a single
     /// staking pool token.
     pub stake_rate: u64,
+    //reward token mint.
+    pub reward_mint: Pubkey,
+    //minimum reward amount.
+    pub minimum_reward_amount: u64,
 }
+
+

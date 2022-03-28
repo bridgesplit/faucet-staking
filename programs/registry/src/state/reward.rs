@@ -1,59 +1,10 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token::*;
+use crate::state::{member::*, registrar::*};
+use crate::errors::*;
 
 
 
-#[derive(Accounts, Clone)]
-pub struct BalanceSandboxAccounts<'info> {
-    #[account(mut)]
-    spt: CpiAccount<'info, TokenAccount>,
-    #[account(mut, "vault.owner == spt.owner")]
-    vault: CpiAccount<'info, TokenAccount>,
-    #[account(
-        mut,
-        "vault_stake.owner == spt.owner",
-        "vault_stake.mint == vault.mint"
-    )]
-    vault_stake: CpiAccount<'info, TokenAccount>,
-    #[account(mut, "vault_pw.owner == spt.owner", "vault_pw.mint == vault.mint")]
-    vault_pw: CpiAccount<'info, TokenAccount>,
-}
-
-
-
-
-
-// Accounts common to both claim reward locked/unlocked instructions.
-#[derive(Accounts)]
-pub struct ClaimRewardCommon<'info> {
-    // Stake instance.
-    registrar: ProgramAccount<'info, Registrar>,
-    // Member.
-    #[account(mut, has_one = registrar, has_one = beneficiary)]
-    member: ProgramAccount<'info, Member>,
-    #[account(signer)]
-    beneficiary: AccountInfo<'info>,
-    #[account("BalanceSandbox::from(&balances) == member.balances")]
-    balances: BalanceSandboxAccounts<'info>,
-    #[account("BalanceSandbox::from(&balances_locked) == member.balances_locked")]
-    balances_locked: BalanceSandboxAccounts<'info>,
-    // Vendor.
-    #[account(has_one = registrar, has_one = vault)]
-    vendor: ProgramAccount<'info, RewardVendor>,
-    #[account(mut)]
-    vault: AccountInfo<'info>,
-    #[account(
-        seeds = [
-            registrar.to_account_info().key.as_ref(),
-            vendor.to_account_info().key.as_ref(),
-            &[vendor.nonce],
-        ]
-    )]
-    vendor_signer: AccountInfo<'info>,
-    // Misc.
-    #[account("token_program.key == &token::ID")]
-    token_program: AccountInfo<'info>,
-    clock: Sysvar<'info, Clock>,
-}
 
 
 
@@ -88,6 +39,25 @@ pub enum RewardVendorKind {
     },
 }
 
+
+
+#[derive(Accounts, Clone)]
+pub struct BalanceSandboxAccounts<'info> {
+    #[account(mut)]
+    pub spt: Account<'info, TokenAccount>,
+    #[account(mut, "vault.owner == spt.owner")]
+    pub vault: Account<'info, TokenAccount>,
+    #[account(
+        mut,
+        "vault_stake.owner == spt.owner",
+        "vault_stake.mint == vault.mint"
+    )]
+    pub vault_stake: Account<'info, TokenAccount>,
+    #[account(mut, "vault_pw.owner == spt.owner", "vault_pw.mint == vault.mint")]
+    pub vault_pw: Account<'info, TokenAccount>,
+}
+
+
 impl<'info> From<&BalanceSandboxAccounts<'info>> for BalanceSandbox {
     fn from(accs: &BalanceSandboxAccounts<'info>) -> Self {
         Self {
@@ -99,31 +69,17 @@ impl<'info> From<&BalanceSandboxAccounts<'info>> for BalanceSandbox {
     }
 }
 
-fn reward_eligible(cmn: &ClaimRewardCommon) -> Result<()> {
-    let vendor = &cmn.vendor;
-    let member = &cmn.member;
-    if vendor.expired {
-        return Err(ErrorCode::VendorExpired.into());
-    }
-    if member.rewards_cursor > vendor.reward_event_q_cursor {
-        return Err(ErrorCode::CursorAlreadyProcessed.into());
-    }
-    if member.last_stake_ts > vendor.start_ts {
-        return Err(ErrorCode::NotStakedDuringDrop.into());
-    }
-    Ok(())
-}
 
 #[account]
 pub struct RewardQueue {
     // Invariant: index is position of the next available slot.
-    head: u32,
+    pub head: u32,
     // Invariant: index is position of the first (oldest) taken slot.
     // Invariant: head == tail => queue is initialized.
     // Invariant: index_of(head + 1) == index_of(tail) => queue is full.
-    tail: u32,
+    pub tail: u32,
     // Although a vec is used, the size is immutable.
-    events: Vec<RewardEvent>,
+    pub events: Vec<RewardEvent>,
 }
 
 impl RewardQueue {
@@ -168,9 +124,9 @@ impl RewardQueue {
 
 #[derive(Default, Clone, Copy, Debug, AnchorSerialize, AnchorDeserialize)]
 pub struct RewardEvent {
-    vendor: Pubkey,
-    ts: i64,
-    locked: bool,
+    pub vendor: Pubkey,
+    pub ts: i64,
+    pub locked: bool,
 }
 
 #[account]

@@ -1,13 +1,19 @@
+
+use anchor_lang::prelude::*;
+use anchor_spl::token::*;
+
+use crate::{state::*, errors::*};
+
 #[derive(Accounts)]
 pub struct EndUnstake<'info> {
-    registrar: ProgramAccount<'info, Registrar>,
+    registrar: Account<'info, Registrar>,
 
     #[account(has_one = registrar, has_one = beneficiary)]
-    member: ProgramAccount<'info, Member>,
+    member: Account<'info, Member>,
     #[account(signer)]
     beneficiary: AccountInfo<'info>,
     #[account(mut, has_one = registrar, has_one = member, "!pending_withdrawal.burned")]
-    pending_withdrawal: ProgramAccount<'info, PendingWithdrawal>,
+    pending_withdrawal: Account<'info, PendingWithdrawal>,
 
     // If we had ordered maps implementing Accounts we could do a constraint like
     // balances.get(pending_withdrawal.balance_id).vault == vault.key.
@@ -23,18 +29,19 @@ pub struct EndUnstake<'info> {
             registrar.to_account_info().key.as_ref(),
             member.to_account_info().key.as_ref(),
             &[member.nonce],
-        ]
+        ],
+        bump
     )]
     member_signer: AccountInfo<'info>,
 
     clock: Sysvar<'info, Clock>,
-    #[account("token_program.key == &token::ID")]
+    #[account("token_program.key == &anchor_spl::token::ID")]
     token_program: AccountInfo<'info>,
 }
 
 pub fn handler(ctx: Context<EndUnstake>) -> Result<()> {
     if ctx.accounts.pending_withdrawal.end_ts > ctx.accounts.clock.unix_timestamp {
-        return Err(ErrorCode::UnstakeTimelock.into());
+        return Err(CustomErrorCode::UnstakeTimelock.into());
     }
 
     // Select which balance set this affects.
@@ -47,10 +54,10 @@ pub fn handler(ctx: Context<EndUnstake>) -> Result<()> {
     };
     // Check the vaults given are corrrect.
     if &balances.vault != ctx.accounts.vault.key {
-        return Err(ErrorCode::InvalidVault.into());
+        return Err(CustomErrorCode::InvalidVault.into());
     }
     if &balances.vault_pw != ctx.accounts.vault_pw.key {
-        return Err(ErrorCode::InvalidVault.into());
+        return Err(CustomErrorCode::InvalidVault.into());
     }
 
     // Transfer tokens between vaults.
@@ -70,7 +77,7 @@ pub fn handler(ctx: Context<EndUnstake>) -> Result<()> {
             },
             signer,
         );
-        token::transfer(cpi_ctx, ctx.accounts.pending_withdrawal.amount)?;
+        transfer(cpi_ctx, ctx.accounts.pending_withdrawal.amount)?;
     }
 
     // Burn the pending withdrawal receipt.

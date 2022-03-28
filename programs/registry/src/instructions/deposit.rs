@@ -1,22 +1,24 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token::*;
 
+use crate::state::*;
 
 #[derive(Accounts)]
 pub struct Deposit<'info> {
     // Member.
     #[account(has_one = beneficiary)]
-    member: ProgramAccount<'info, Member>,
+    member: Account<'info, Member>,
     #[account(signer)]
     beneficiary: AccountInfo<'info>,
     #[account(mut, "vault.to_account_info().key == &member.balances.vault")]
-    vault: CpiAccount<'info, TokenAccount>,
+    vault: Account<'info, TokenAccount>,
     // Depositor.
     #[account(mut)]
     depositor: AccountInfo<'info>,
     #[account(signer, "depositor_authority.key == &member.beneficiary")]
     depositor_authority: AccountInfo<'info>,
     // Misc.
-    #[account("token_program.key == &token::ID")]
+    #[account("token_program.key == &anchor_spl::token::ID")]
     token_program: AccountInfo<'info>,
 }
 
@@ -37,5 +39,5 @@ impl<'a, 'b, 'c, 'info> From<&mut Deposit<'info>>
 
 // Deposits that can only come directly from the member beneficiary.
 pub fn handler(ctx: Context<Deposit>, amount: u64) -> Result<()> {
-    token::transfer(ctx.accounts.into(), amount).map_err(Into::into)
+    transfer(ctx.accounts.into(), amount).map_err(Into::into)
 }

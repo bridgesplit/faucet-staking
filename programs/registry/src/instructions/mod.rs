@@ -1,4 +1,3 @@
-pub mod claim_reward_locked;
 pub mod claim_reward;
 pub mod create_member;
 pub mod deposit;
@@ -15,7 +14,6 @@ pub mod withdraw_locked;
 pub mod withdraw;
 
 
-pub use claim_reward_locked::*;
 pub use claim_reward::*;
 pub use create_member::*;
 pub use deposit::*;

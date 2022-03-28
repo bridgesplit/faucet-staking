@@ -1,14 +1,24 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token::*;
+use anchor_lang::solana_program::program_option::COption;
+
+use crate::{state::*, errors::*};
+
 
 #[derive(Accounts)]
-pub struct InitializRegistrar<'info> {
-    #[account(init)]
-    registrar: ProgramAccount<'info, Registrar>,
-    #[account(init)]
-    reward_event_q: ProgramAccount<'info, RewardQueue>,
+pub struct InitializeRegistrar<'info> {
+    #[account(mut)]
+    initializer: Signer<'info>,
+    #[account(init, payer = initializer, space = 8 + std::mem::size_of::<Registrar>())]
+    registrar: Account<'info, Registrar>,
+    #[account(init, payer = initializer, space = 8 + std::mem::size_of::<RewardQueue>() + 256,
+    seeds = [registrar.key().as_ref()], bump)]
+    reward_event_q: Account<'info, RewardQueue>,
     #[account("pool_mint.decimals == 0")]
-    pool_mint: CpiAccount<'info, Mint>,
+    pool_mint: Account<'info, Mint>,
+    pub system_program: Program<'info, System>,
     rent: Sysvar<'info, Rent>,
+
 }
 
 
@@ -21,14 +31,19 @@ impl<'info> InitializeRegistrar<'info> {
             ],
             ctx.program_id,
         )
-        .map_err(|_| ErrorCode::InvalidNonce)?;
+        .map_err(|_| CustomErrorCode::InvalidNonce)?;
         if ctx.accounts.pool_mint.mint_authority != COption::Some(registrar_signer) {
-            return Err(ErrorCode::InvalidPoolMintAuthority.into());
+            return Err(CustomErrorCode::InvalidPoolMintAuthority.into());
         }
         assert!(ctx.accounts.pool_mint.supply == 0);
         Ok(())
     }
 }
+
+
+
+
+
 
 #[access_control(InitializeRegistrar::accounts(&ctx, nonce))]
 pub fn handler(

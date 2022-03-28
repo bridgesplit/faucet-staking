@@ -1,5 +1,16 @@
 use anchor_lang::prelude::*;
 
+use crate::{errors::*, state::*};
+use crate::state::*;
+use lockup::{RealizeLock, Vesting};
+
+
+#[derive(Accounts)]
+pub struct SetLockupProgram<'info> {
+    #[account(signer)]
+    authority: AccountInfo<'info>,
+}
+
 impl Registry {
     pub fn new(ctx: Context<Ctor>) -> Result<Self> {
         Ok(Registry {
@@ -7,23 +18,8 @@ impl Registry {
         })
     }
 
-    impl<'info> RealizeLock<'info, IsRealized<'info>> for Registry {
-        fn is_realized(ctx: Context<IsRealized>, v: Vesting) -> ProgramResult {
-            if let Some(realizor) = &v.realizor {
-                if &realizor.metadata != ctx.accounts.member.to_account_info().key {
-                    return Err(ErrorCode::InvalidRealizorMetadata.into());
-                }
-                assert!(ctx.accounts.member.beneficiary == v.beneficiary);
-                let total_staked =
-                    ctx.accounts.member_spt.amount + ctx.accounts.member_spt_locked.amount;
-                if total_staked != 0 {
-                    return Err(ErrorCode::UnrealizedReward.into());
-                }
-            }
-            Ok(())
-        }
-    }
 
+  
 
     pub fn handler(
         &mut self,
@@ -39,11 +35,29 @@ impl Registry {
             .parse()
             .unwrap();
         if ctx.accounts.authority.key != &expected {
-            return Err(ErrorCode::InvalidProgramAuthority.into());
+            return Err(CustomErrorCode::InvalidProgramAuthority.into());
         }
 
         self.lockup_program = lockup_program;
 
+        Ok(())
+    }
+}
+
+
+impl<'info> RealizeLock<'info, IsRealized<'info>> for Registry {
+    fn is_realized(ctx: Context<IsRealized>, v: Vesting) -> Result<()> {
+        if let Some(realizor) = &v.realizor {
+            if &realizor.metadata != ctx.accounts.member.to_account_info().key {
+                return Err(CustomErrorCode::InvalidRealizorMetadata.into());
+            }
+            assert!(ctx.accounts.member.beneficiary == v.beneficiary);
+            let total_staked =
+                ctx.accounts.member_spt.amount + ctx.accounts.member_spt_locked.amount;
+            if total_staked != 0 {
+                return Err(CustomErrorCode::UnrealizedReward.into());
+            }
+        }
         Ok(())
     }
 }

@@ -1,4 +1,9 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token::*;
+
+use crate::{state::*};
+use lockup::{Vesting};
+
 
 #[derive(Accounts)]
 pub struct WithdrawLocked<'info> {
@@ -7,32 +12,33 @@ pub struct WithdrawLocked<'info> {
         "vesting.to_account_info().owner == &registry.lockup_program",
         "vesting.beneficiary == member.beneficiary"
     )]
-    vesting: CpiAccount<'info, Vesting>,
+    vesting: Account<'info, Vesting>,
     #[account(mut, "vesting_vault.key == &vesting.vault")]
     vesting_vault: AccountInfo<'info>,
     #[account(signer)]
     vesting_signer: AccountInfo<'info>,
-    #[account("token_program.key == &token::ID")]
+    #[account("token_program.key == &anchor_spl::token::ID")]
     token_program: AccountInfo<'info>,
     #[account(
         mut,
         "member_vault.to_account_info().key == &member.balances_locked.vault"
     )]
-    member_vault: CpiAccount<'info, TokenAccount>,
+    member_vault: Account<'info, TokenAccount>,
     #[account(
         seeds = [
             registrar.to_account_info().key.as_ref(),
             member.to_account_info().key.as_ref(),
             &[member.nonce],
-        ]
+        ],
+        bump
     )]
     member_signer: AccountInfo<'info>,
 
     // Program specific.
-    registry: ProgramState<'info, Registry>,
-    registrar: ProgramAccount<'info, Registrar>,
+    registry: Account<'info, Registry>,
+    registrar: Account<'info, Registrar>,
     #[account(has_one = registrar, has_one = beneficiary)]
-    member: ProgramAccount<'info, Member>,
+    member: Account<'info, Member>,
     #[account(signer)]
     beneficiary: AccountInfo<'info>
 
@@ -55,5 +61,5 @@ pub fn handler(ctx: Context<WithdrawLocked>, amount: u64) -> Result<()> {
         let cpi_program = ctx.accounts.token_program.clone();
         let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
 
-        token::transfer(cpi_ctx, amount).map_err(Into::into)
+        transfer(cpi_ctx, amount).map_err(Into::into)
     }

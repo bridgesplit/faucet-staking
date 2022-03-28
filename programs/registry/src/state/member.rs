@@ -1,13 +1,8 @@
 
 use anchor_lang::prelude::*;
+use anchor_spl::token::*;
+use crate::state::reward::*;
 
-#[derive(Accounts)]
-pub struct UpdateMember<'info> {
-    #[account(mut, has_one = beneficiary)]
-    member: ProgramAccount<'info, Member>,
-    #[account(signer)]
-    beneficiary: AccountInfo<'info>,
-}
 
 
 #[derive(Accounts)]
@@ -16,9 +11,9 @@ pub struct IsRealized<'info> {
         "&member.balances.spt == member_spt.to_account_info().key",
         "&member.balances_locked.spt == member_spt_locked.to_account_info().key"
     )]
-    member: ProgramAccount<'info, Member>,
-    member_spt: CpiAccount<'info, TokenAccount>,
-    member_spt_locked: CpiAccount<'info, TokenAccount>,
+    pub member: Account<'info, Member>,
+    pub member_spt: Account<'info, TokenAccount>,
+    pub member_spt_locked: Account<'info, TokenAccount>,
 }
 
 

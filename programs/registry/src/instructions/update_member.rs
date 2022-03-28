@@ -1,8 +1,13 @@
 
+use anchor_lang::prelude::*;
+
+use crate::{state::*};
+
+
 #[derive(Accounts)]
 pub struct UpdateMember<'info> {
     #[account(mut, has_one = beneficiary)]
-    member: ProgramAccount<'info, Member>,
+    member: Account<'info, Member>,
     #[account(signer)]
     beneficiary: AccountInfo<'info>,
 }

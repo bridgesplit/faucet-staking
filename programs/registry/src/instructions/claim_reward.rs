@@ -1,5 +1,11 @@
 use anchor_lang::prelude::*;
 
+use crate::{state::*, errors::*};
+use anchor_spl::{*, token::*};
+use ::lockup::*;
+
+
+
 #[derive(Accounts)]
 pub struct ClaimReward<'info> {
     cmn: ClaimRewardCommon<'info>,
@@ -9,10 +15,65 @@ pub struct ClaimReward<'info> {
 }
 
 
+fn reward_eligible(cmn: &ClaimRewardCommon) -> Result<()> {
+    let vendor = &cmn.vendor;
+    let member = &cmn.member;
+    if vendor.expired {
+        return Err(CustomErrorCode::VendorExpired.into());
+    }
+    if member.rewards_cursor > vendor.reward_event_q_cursor {
+        return Err(CustomErrorCode::CursorAlreadyProcessed.into());
+    }
+    if member.last_stake_ts > vendor.start_ts {
+        return Err(CustomErrorCode::NotStakedDuringDrop.into());
+    }
+    Ok(())
+}
+
+
+
+
+// Accounts common to both claim reward locked/unlocked instructions.
+#[derive(Accounts)]
+pub struct ClaimRewardCommon<'info> {
+    // Stake instance.
+    registrar: Account<'info, Registrar>,
+    // Member.
+    #[account(mut, has_one = registrar, has_one = beneficiary)]
+    member: Account<'info, Member>,
+    #[account(signer)]
+    beneficiary: AccountInfo<'info>,
+    #[account("BalanceSandbox::from(&balances) == member.balances")]
+    balances: BalanceSandboxAccounts<'info>,
+    #[account("BalanceSandbox::from(&balances_locked) == member.balances_locked")]
+    balances_locked: BalanceSandboxAccounts<'info>,
+    // Vendor.
+    #[account(has_one = registrar, has_one = vault)]
+    vendor: Account<'info, RewardVendor>,
+    #[account(mut)]
+    vault: AccountInfo<'info>,
+    #[account(
+        seeds = [
+            registrar.to_account_info().key.as_ref(),
+            vendor.to_account_info().key.as_ref(),
+            &[vendor.nonce]
+        ],
+        bump
+
+    )]
+    vendor_signer: AccountInfo<'info>,
+    // Misc.
+    #[account(
+        constraint = token_program.key == &anchor_spl::token::ID)]
+    token_program: AccountInfo<'info>,
+    clock: Sysvar<'info, Clock>,
+}
+
+
 #[access_control(reward_eligible(&ctx.accounts.cmn))]
-    pub fn claim_reward(ctx: Context<ClaimReward>) -> Result<()> {
+    pub fn unlocked_handler(ctx: Context<ClaimReward>) -> Result<()> {
     if RewardVendorKind::Unlocked != ctx.accounts.cmn.vendor.kind {
-        return Err(ErrorCode::ExpectedUnlockedVendor.into());
+        return Err(CustomErrorCode::ExpectedUnlockedVendor.into());
     }
     // Reward distribution.
     let spt_total =
@@ -48,4 +109,92 @@ pub struct ClaimReward<'info> {
 
     Ok(())
     
+    }
+
+
+
+    use crate::{errors::CustomErrorCode, state::*, utils::*};
+
+
+#[derive(Accounts)]
+pub struct ClaimRewardLocked<'info> {
+    cmn: ClaimRewardCommon<'info>,
+    registry: Account<'info, Registry>,
+    #[account("lockup_program.key == &registry.lockup_program")]
+    lockup_program: AccountInfo<'info>,
+}
+
+
+    #[access_control(reward_eligible(&ctx.accounts.cmn))]
+    pub fn locked_handler<'a, 'b, 'c, 'info>(
+        ctx: Context<'a, 'b, 'c, 'info, ClaimRewardLocked<'info>>,
+        nonce: u8,
+    ) -> Result<()> { 
+        let (start_ts, end_ts, period_count) = match ctx.accounts.cmn.vendor.kind {
+            RewardVendorKind::Unlocked => return Err(CustomErrorCode::ExpectedLockedVendor.into()),
+            RewardVendorKind::Locked {
+                start_ts,
+                end_ts,
+                period_count,
+            } => (start_ts, end_ts, period_count),
+        };
+
+        // Reward distribution.
+        let spt_total =
+            ctx.accounts.cmn.balances.spt.amount + ctx.accounts.cmn.balances_locked.spt.amount;
+        let reward_amount = spt_total
+            .checked_mul(ctx.accounts.cmn.vendor.total)
+            .unwrap()
+            .checked_div(ctx.accounts.cmn.vendor.pool_token_supply)
+            .unwrap();
+        assert!(reward_amount > 0);
+
+        // Specify the vesting account's realizor, so that unlocks can only
+        // execute once completely unstaked.
+        let realizor = Some(Realizor {
+            program: *ctx.program_id,
+            metadata: *ctx.accounts.cmn.member.to_account_info().key,
+        });
+
+        // CPI: Create lockup account for the member's beneficiary.
+        let seeds = &[
+            ctx.accounts.cmn.registrar.to_account_info().key.as_ref(),
+            ctx.accounts.cmn.vendor.to_account_info().key.as_ref(),
+            &[ctx.accounts.cmn.vendor.nonce],
+        ];
+        let signer = &[&seeds[..]];
+
+        let mut remaining_accounts: &[AccountInfo] = ctx.remaining_accounts;
+        let cpi_program = ctx.accounts.lockup_program.clone();
+        let vesting_accounts =
+            CreateVesting::try_accounts(ctx.accounts.lockup_program.key, &mut remaining_accounts, &[], &mut ctx.bumps.clone())?;
+
+        let cpi_accounts = 
+        ::lockup::cpi::accounts::CreateVesting {
+            vesting: vesting_accounts.vesting.to_account_info(),
+            vault: vesting_accounts.vault.to_account_info(),
+            depositor: vesting_accounts.depositor,
+            depositor_authority: vesting_accounts.depositor_authority,
+            token_program: vesting_accounts.token_program,
+            rent: vesting_accounts.rent.to_account_info(),
+            system_program: vesting_accounts.system_program.to_account_info(),
+            clock: vesting_accounts.clock.to_account_info()
+        };
+        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
+            ::lockup::cpi::create_vesting(
+            cpi_ctx,
+            ctx.accounts.cmn.member.beneficiary,
+            reward_amount,
+            nonce,
+            start_ts,
+            end_ts,
+            period_count,
+            realizor,
+        )?;
+
+        // Make sure this reward can't be processed more than once.
+        let member = &mut ctx.accounts.cmn.member;
+        member.rewards_cursor = ctx.accounts.cmn.vendor.reward_event_q_cursor + 1;
+
+        Ok(())
     }

@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
 pub struct Ctor<'info> {
-    lockup_program: AccountInfo<'info>,
+    pub lockup_program: AccountInfo<'info>,
 }
 
 #[derive(Accounts)]
