@@ -1,5 +1,9 @@
 
 use anchor_lang::prelude::*;
+use anchor_spl::token::*;
+
+pub use crate::state::*;
+pub use ::lockup::Vesting;
 
 #[derive(Accounts)]
 pub struct DepositLocked<'info> {
@@ -8,34 +12,35 @@ pub struct DepositLocked<'info> {
         "vesting.to_account_info().owner == &registry.lockup_program",
         "vesting.beneficiary == member.beneficiary"
     )]
-    vesting: CpiAccount<'info, Vesting>,
+    vesting: Account<'info, Vesting>,
     #[account(mut, "vesting_vault.key == &vesting.vault")]
     vesting_vault: AccountInfo<'info>,
     // Note: no need to verify the depositor_authority since the SPL program
     //       will fail the transaction if it's not correct.
     #[account(signer)]
     depositor_authority: AccountInfo<'info>,
-    #[account("token_program.key == &token::ID")]
+    #[account("token_program.key == &anchor_spl::token::ID")]
     token_program: AccountInfo<'info>,
     #[account(
         mut,
         "member_vault.to_account_info().key == &member.balances_locked.vault"
     )]
-    member_vault: CpiAccount<'info, TokenAccount>,
+    member_vault: Account<'info, TokenAccount>,
     #[account(
         seeds = [
             registrar.to_account_info().key.as_ref(),
             member.to_account_info().key.as_ref(),
             &[member.nonce],
-        ]
+        ],
+        bump
     )]
     member_signer: AccountInfo<'info>,
 
     // Program specific.
-    registry: ProgramState<'info, Registry>,
-    registrar: ProgramAccount<'info, Registrar>,
+    registry: Account<'info, Registry>,
+    registrar: Account<'info, Registrar>,
     #[account(has_one = registrar, has_one = beneficiary)]
-    member: ProgramAccount<'info, Member>,
+    member: Account<'info, Member>,
     #[account(signer)]
     beneficiary: AccountInfo<'info>,
 }
@@ -58,6 +63,6 @@ impl<'a, 'b, 'c, 'info> From<&mut DepositLocked<'info>>
 
 
 // Deposits that can only come from the beneficiary's vesting accounts.
-pub fn deposit_locked(ctx: Context<DepositLocked>, amount: u64) -> Result<()> {
-    token::transfer(ctx.accounts.into(), amount).map_err(Into::into)
+pub fn handler(ctx: Context<DepositLocked>, amount: u64) -> Result<()> {
+    transfer(ctx.accounts.into(), amount).map_err(Into::into)
 }

@@ -21,7 +21,7 @@ impl Registry {
 
   
 
-    pub fn handler(
+    pub fn set_lockup_program(
         &mut self,
         ctx: Context<SetLockupProgram>,
         lockup_program: Pubkey,

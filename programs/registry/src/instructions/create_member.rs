@@ -53,7 +53,7 @@ impl<'info> CreateMember<'info> {
 }
    
 #[access_control(CreateMember::accounts(&ctx, nonce))]
-pub fn create_member(ctx: Context<CreateMember>, nonce: u8, hash: String) -> Result<()> {
+pub fn handler(ctx: Context<CreateMember>, nonce: u8, hash: String) -> Result<()> {
     let hash_bytes: [u8; 64] = hash
     .as_bytes()
     .try_into()

@@ -37,7 +37,7 @@ fn reward_eligible(cmn: &ClaimRewardCommon) -> Result<()> {
 #[derive(Accounts)]
 pub struct ClaimRewardCommon<'info> {
     // Stake instance.
-    registrar: Box<Account<'info, Registrar>>,
+    registrar: Account<'info, Registrar>,
     // Member.
     #[account(mut, has_one = registrar, has_one = beneficiary)]
     member: Box<Account<'info, Member>>,

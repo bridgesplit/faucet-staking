@@ -1,6 +1,7 @@
 pub mod claim_reward;
 pub mod create_member;
 pub mod deposit;
+pub mod deposit_locked;
 pub mod drop_reward;
 pub mod end_unstake;
 pub mod expire_reward;
@@ -17,6 +18,7 @@ pub mod withdraw;
 pub use claim_reward::*;
 pub use create_member::*;
 pub use deposit::*;
+pub use deposit_locked::*;
 pub use drop_reward::*;
 pub use end_unstake::*;
 pub use expire_reward::*;
@@ -25,6 +27,7 @@ pub use set_lockup_program::*;
 pub use stake::*;
 pub use start_unstake::*;
 pub use update_member::*;
+pub use update_registrar::*;
 pub use withdraw_locked::*;
 pub use withdraw::*;
 

@@ -1,3 +1,8 @@
+[programs.localnet]
+registry = "WRDwvUg93dDeMi9A1UqgHUEXrEZVnZ1aNUhf5uZwtEX"
+lockup = "B9cvoGgfMNNUCSLoAmdZ1eCh29UnZ9XzGEckwGDXDHNc"
+
+
 [provider]
 cluster = "localnet"
 wallet = "~/.config/solana/id.json"

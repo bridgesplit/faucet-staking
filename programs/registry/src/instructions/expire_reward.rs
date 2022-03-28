@@ -35,7 +35,7 @@ pub struct ExpireReward<'info> {
 
 
 
-pub fn expire_reward(ctx: Context<ExpireReward>) -> Result<()> {
+pub fn handler(ctx: Context<ExpireReward>) -> Result<()> {
     if ctx.accounts.clock.unix_timestamp < ctx.accounts.vendor.expiry_ts {
         return Err(CustomErrorCode::VendorNotYetExpired.into());
     }

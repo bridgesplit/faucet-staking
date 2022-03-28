@@ -7,7 +7,7 @@ use anchor_spl::token::{self, TokenAccount, Transfer};
 
 mod calculator;
 
-declare_id!("6CGVhsk3d4Fu2Ua8SsePqGquC2YpSkTFyZWvEEagT7r6");
+declare_id!("B9cvoGgfMNNUCSLoAmdZ1eCh29UnZ9XzGEckwGDXDHNc");
 
 #[program]
 pub mod lockup {
