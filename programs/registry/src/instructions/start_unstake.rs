@@ -9,17 +9,17 @@ use crate::{state::*, errors::*, claim_reward::*, stake::*};
 pub struct StartUnstake<'info> {
     // Stake instance globals.
     #[account(has_one = reward_event_q, has_one = pool_mint)]
-    registrar: Account<'info, Registrar>,
-    reward_event_q: Account<'info, RewardQueue>,
+    registrar: Box<Account<'info, Registrar>>,
+    reward_event_q: Box<Account<'info, RewardQueue>>,
     #[account(mut)]
     pool_mint: AccountInfo<'info>,
     // Member.
     #[account(init,
     payer = beneficiary,
     space = std::mem::size_of::<PendingWithdrawal>())]
-    pending_withdrawal: Account<'info, PendingWithdrawal>,
+    pending_withdrawal: Box<Account<'info, PendingWithdrawal>>,
     #[account(has_one = beneficiary, has_one = registrar)]
-    member:Account<'info, Member>,
+    member: Box<Account<'info, Member>>,
     #[account(mut)]
     beneficiary: Signer<'info>,
     #[account("BalanceSandbox::from(&balances) == member.balances")]

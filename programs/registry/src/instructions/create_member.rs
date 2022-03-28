@@ -7,11 +7,11 @@ use std::convert::TryInto;
 #[derive(Accounts)]
 pub struct CreateMember<'info> {
     // Stake instance.
-    registrar: Account<'info, Registrar>,
+    registrar: Box<Account<'info, Registrar>>,
     // Member.
     #[account(init, payer = beneficiary,
     space = 8 + std::mem::size_of::<Member>())]
-    member: Account<'info, Member>,
+    member: Box<Account<'info, Member>>,
     #[account(mut, signer)]
     beneficiary: AccountInfo<'info>,
     #[account(

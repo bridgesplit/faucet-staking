@@ -9,16 +9,16 @@ use crate::{state::*, errors::*};
 pub struct DropReward<'info> {
     // Staking instance.
     #[account(has_one = reward_event_q, has_one = pool_mint)]
-    registrar: Account<'info, Registrar>,
+    registrar: Box<Account<'info, Registrar>>,
     #[account(mut)]
-    reward_event_q: Account<'info, RewardQueue>,
-    pool_mint: Account<'info, Mint>,
+    reward_event_q: Box<Account<'info, RewardQueue>>,
+    pool_mint: Box<Account<'info, Mint>>,
     // Vendor.
     #[account(init,
     payer = depositor_authority, space = 8 + std::mem::size_of::<RewardVendor>())]
-    vendor: Account<'info, RewardVendor>,
+    vendor: Box<Account<'info, RewardVendor>>,
     #[account(mut)]
-    vendor_vault: Account<'info, TokenAccount>,
+    vendor_vault: Box<Account<'info, TokenAccount>>,
     // Depositor.
     #[account(mut)]
     depositor: AccountInfo<'info>,

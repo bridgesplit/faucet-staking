@@ -12,7 +12,7 @@ pub struct WithdrawLocked<'info> {
         "vesting.to_account_info().owner == &registry.lockup_program",
         "vesting.beneficiary == member.beneficiary"
     )]
-    vesting: Account<'info, Vesting>,
+    vesting: Box<Account<'info, Vesting>>,
     #[account(mut, "vesting_vault.key == &vesting.vault")]
     vesting_vault: AccountInfo<'info>,
     #[account(signer)]
@@ -23,7 +23,7 @@ pub struct WithdrawLocked<'info> {
         mut,
         "member_vault.to_account_info().key == &member.balances_locked.vault"
     )]
-    member_vault: Account<'info, TokenAccount>,
+    member_vault: Box<Account<'info, TokenAccount>>,
     #[account(
         seeds = [
             registrar.to_account_info().key.as_ref(),
@@ -35,10 +35,10 @@ pub struct WithdrawLocked<'info> {
     member_signer: AccountInfo<'info>,
 
     // Program specific.
-    registry: Account<'info, Registry>,
-    registrar: Account<'info, Registrar>,
+    registry: Box<Account<'info, Registry>>,
+    registrar: Box<Account<'info, Registrar>>,
     #[account(has_one = registrar, has_one = beneficiary)]
-    member: Account<'info, Member>,
+    member: Box<Account<'info, Member>>,
     #[account(signer)]
     beneficiary: AccountInfo<'info>
 

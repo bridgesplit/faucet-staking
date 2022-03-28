@@ -37,10 +37,10 @@ fn reward_eligible(cmn: &ClaimRewardCommon) -> Result<()> {
 #[derive(Accounts)]
 pub struct ClaimRewardCommon<'info> {
     // Stake instance.
-    registrar: Account<'info, Registrar>,
+    registrar: Box<Account<'info, Registrar>>,
     // Member.
     #[account(mut, has_one = registrar, has_one = beneficiary)]
-    member: Account<'info, Member>,
+    member: Box<Account<'info, Member>>,
     #[account(signer)]
     beneficiary: AccountInfo<'info>,
     #[account("BalanceSandbox::from(&balances) == member.balances")]
@@ -49,7 +49,7 @@ pub struct ClaimRewardCommon<'info> {
     balances_locked: BalanceSandboxAccounts<'info>,
     // Vendor.
     #[account(has_one = registrar, has_one = vault)]
-    vendor: Account<'info, RewardVendor>,
+    vendor: Box<Account<'info, RewardVendor>>,
     #[account(mut)]
     vault: AccountInfo<'info>,
     #[account(

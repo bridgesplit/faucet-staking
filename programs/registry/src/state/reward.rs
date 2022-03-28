@@ -44,17 +44,17 @@ pub enum RewardVendorKind {
 #[derive(Accounts, Clone)]
 pub struct BalanceSandboxAccounts<'info> {
     #[account(mut)]
-    pub spt: Account<'info, TokenAccount>,
+    pub spt: Box<Account<'info, TokenAccount>>,
     #[account(mut, "vault.owner == spt.owner")]
-    pub vault: Account<'info, TokenAccount>,
+    pub vault: Box<Account<'info, TokenAccount>>,
     #[account(
         mut,
         "vault_stake.owner == spt.owner",
         "vault_stake.mint == vault.mint"
     )]
-    pub vault_stake: Account<'info, TokenAccount>,
+    pub vault_stake: Box<Account<'info, TokenAccount>>,
     #[account(mut, "vault_pw.owner == spt.owner", "vault_pw.mint == vault.mint")]
-    pub vault_pw: Account<'info, TokenAccount>,
+    pub vault_pw: Box<Account<'info, TokenAccount>>,
 }
 
 
