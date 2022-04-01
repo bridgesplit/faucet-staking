@@ -1,3 +1,12 @@
+[programs.localnet]
+nft_faucet_staking = "hRWpooyR8zTdnVs21V5b3pGHFqbkuvfgboY7KRAT2u7"
+lockup = "B9cvoGgfMNNUCSLoAmdZ1eCh29UnZ9XzGEckwGDXDHNc"
+
+
 [provider]
 cluster = "localnet"
-wallet = "~/.config/solana/id.json"
+wallet = "/Users/jwalinjoshi/.config/solana/id.json"
+
+
+[scripts]
+test = "ts-mocha -p ./tsconfig.json -t 1000000 tests/*"
