@@ -6,7 +6,9 @@ use crate::{state::*, errors::*};
 
 
 #[derive(Accounts)]
-pub struct DropReward<'info> {
+pub struct DropReward<'info> {       
+    #[account(mut, signer)]
+    depositor_authority: AccountInfo<'info>,
     // Staking instance.
     #[account(has_one = reward_event_q, has_one = pool_mint)]
     registrar: Box<Account<'info, Registrar>>,
@@ -14,18 +16,33 @@ pub struct DropReward<'info> {
     reward_event_q: Box<Account<'info, RewardQueue>>,
     pool_mint: Box<Account<'info, Mint>>,
     // Vendor.
-    #[account(init,
+    #[account(
+        init,
     payer = depositor_authority, space = 8 + std::mem::size_of::<RewardVendor>())]
     vendor: Box<Account<'info, RewardVendor>>,
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = vendor_vault.mint == registrar.reward_mint,
+        constraint = vendor_vault.owner == *vendor_signer.key
+        )]
     vendor_vault: Box<Account<'info, TokenAccount>>,
-    // Depositor.
-    #[account(mut)]
-    depositor: AccountInfo<'info>,
-    #[account(mut, signer)]
-    depositor_authority: AccountInfo<'info>,
+    #[account(
+        seeds = [
+            registrar.to_account_info().key.as_ref(),
+            vendor.to_account_info().key.as_ref(),
+            SIGNER_SEED
+        ],
+        bump
+
+    )]
+    vendor_signer: AccountInfo<'info>,
+    // Depositor. 
+    #[account(mut,
+        constraint = depositor.mint == registrar.reward_mint,
+    )]
+    depositor: Box<Account<'info, TokenAccount>>,
     // Misc.
-    #[account("token_program.key == &anchor_spl::token::ID")]
+    #[account(constraint = token_program.key == &anchor_spl::token::ID)]
     token_program: AccountInfo<'info>,
     clock: Sysvar<'info, Clock>,
     pub system_program: Program<'info, System>,
@@ -38,7 +55,7 @@ impl<'a, 'b, 'c, 'info> From<&mut DropReward<'info>>
 {
     fn from(accounts: &mut DropReward<'info>) -> CpiContext<'a, 'b, 'c, 'info, Transfer<'info>> {
         let cpi_accounts = Transfer {
-            from: accounts.depositor.clone(),
+            from: accounts.depositor.to_account_info(),
             to: accounts.vendor_vault.to_account_info(),
             authority: accounts.depositor_authority.clone(),
         };
@@ -46,35 +63,13 @@ impl<'a, 'b, 'c, 'info> From<&mut DropReward<'info>>
         CpiContext::new(cpi_program, cpi_accounts)
     }
 }
-
-impl<'info> DropReward<'info> {
-    fn accounts(ctx: &Context<DropReward>, nonce: u8) -> Result<()> {
-        let vendor_signer = Pubkey::create_program_address(
-            &[
-                ctx.accounts.registrar.to_account_info().key.as_ref(),
-                ctx.accounts.vendor.to_account_info().key.as_ref(),
-                &[nonce],
-            ],
-            ctx.program_id,
-        )
-        .map_err(|_| CustomErrorCode::InvalidNonce)?;
-        if vendor_signer != ctx.accounts.vendor_vault.owner {
-            return Err(CustomErrorCode::InvalidVaultOwner.into());
-        }
-
-        Ok(())
-    }
-}
-
-
-#[access_control(DropReward::accounts(&ctx, nonce))]
+ 
     pub fn handler(
         ctx: Context<DropReward>,
         kind: RewardVendorKind,
         total: u64,
         expiry_ts: i64,
         expiry_receiver: Pubkey,
-        nonce: u8,
     ) -> Result<()> {
         if total < ctx.accounts.pool_mint.supply {
             return Err(CustomErrorCode::InsufficientReward.into());
@@ -113,10 +108,9 @@ impl<'info> DropReward<'info> {
 
         // Initialize the vendor.
         let vendor = &mut ctx.accounts.vendor;
-        vendor.registrar = *ctx.accounts.registrar.to_account_info().key;
-        vendor.vault = *ctx.accounts.vendor_vault.to_account_info().key;
+        vendor.registrar = ctx.accounts.registrar.key();
+        vendor.vault = ctx.accounts.vendor_vault.key();
         vendor.mint = ctx.accounts.vendor_vault.mint;
-        vendor.nonce = nonce;
         vendor.pool_token_supply = ctx.accounts.pool_mint.supply;
         vendor.reward_event_q_cursor = cursor;
         vendor.start_ts = ctx.accounts.clock.unix_timestamp;

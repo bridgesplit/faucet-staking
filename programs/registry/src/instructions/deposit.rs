@@ -10,15 +10,15 @@ pub struct Deposit<'info> {
     member: Account<'info, Member>,
     #[account(signer)]
     beneficiary: AccountInfo<'info>,
-    #[account(mut, "vault.to_account_info().key == &member.balances.vault")]
+    #[account(mut, constraint = vault.to_account_info().key == &member.vault)]
     vault: Account<'info, TokenAccount>,
     // Depositor.
     #[account(mut)]
     depositor: AccountInfo<'info>,
-    #[account(signer, "depositor_authority.key == &member.beneficiary")]
+    #[account(signer, constraint = depositor_authority.key == &member.beneficiary)]
     depositor_authority: AccountInfo<'info>,
     // Misc.
-    #[account("token_program.key == &anchor_spl::token::ID")]
+    #[account(constraint = token_program.key == &anchor_spl::token::ID)]
     token_program: AccountInfo<'info>,
 }
 

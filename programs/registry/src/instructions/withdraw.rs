@@ -1,7 +1,8 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::*;
 
-use crate::state::*;
+use crate::state::*; 
+use crate::utils::*;
 
 #[derive(Accounts)]
 pub struct Withdraw<'info> {
@@ -12,13 +13,14 @@ pub struct Withdraw<'info> {
     member: Box<Account<'info, Member>>,
     #[account(signer)]
     beneficiary: AccountInfo<'info>,
-    #[account(mut, "vault.to_account_info().key == &member.balances.vault")]
+    #[account(mut,
+        constraint = vault.to_account_info().key == &member.vault)]
     vault: Box<Account<'info, TokenAccount>>,
     #[account(
         seeds = [
             registrar.to_account_info().key.as_ref(),
             member.to_account_info().key.as_ref(),
-            &[member.nonce]
+            SIGNER_SEED
         ],
         bump
     )]
@@ -27,7 +29,9 @@ pub struct Withdraw<'info> {
     #[account(mut)]
     depositor: AccountInfo<'info>,
     // Misc.
-    #[account("token_program.key == &anchor_spl::token::ID")]
+    #[account(
+        constraint = token_program.key == &anchor_spl::token::ID
+    )]
     token_program: AccountInfo<'info>,
 }
 
@@ -36,7 +40,8 @@ pub fn handler(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
     let seeds = &[
         ctx.accounts.registrar.to_account_info().key.as_ref(),
         ctx.accounts.member.to_account_info().key.as_ref(),
-        &[ctx.accounts.member.nonce],
+        &SIGNER_SEED[..],
+        &get_bump_in_seed_form(ctx.bumps.get("member_signer").unwrap())
     ];
     let signer = &[&seeds[..]];
     let cpi_accounts = Transfer {

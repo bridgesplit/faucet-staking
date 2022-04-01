@@ -2,7 +2,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::*;
 
-use crate::{state::*, errors::*};
+use crate::{state::*, errors::*, utils::*};
 
 #[derive(Accounts)]
 pub struct EndUnstake<'info> {
@@ -12,7 +12,8 @@ pub struct EndUnstake<'info> {
     member: Box<Account<'info, Member>>,
     #[account(signer)]
     beneficiary: AccountInfo<'info>,
-    #[account(mut, has_one = registrar, has_one = member, "!pending_withdrawal.burned")]
+    #[account(mut, has_one = registrar, has_one = member, 
+        constraint = !pending_withdrawal.burned)]
     pending_withdrawal: Box<Account<'info, PendingWithdrawal>>,
 
     // If we had ordered maps implementing Accounts we could do a constraint like
@@ -28,7 +29,7 @@ pub struct EndUnstake<'info> {
         seeds = [
             registrar.to_account_info().key.as_ref(),
             member.to_account_info().key.as_ref(),
-            &[member.nonce],
+            SIGNER_SEED
         ],
         bump
     )]
@@ -45,18 +46,22 @@ pub fn handler(ctx: Context<EndUnstake>) -> Result<()> {
     }
 
     // Select which balance set this affects.
-    let balances = {
+    let [memVault, memVaultPw] = {
         if ctx.accounts.pending_withdrawal.locked {
-            &ctx.accounts.member.balances_locked
+            [ ctx.accounts.member.locked_vault,
+             ctx.accounts.member.locked_vault_pw
+            ]
         } else {
-            &ctx.accounts.member.balances
+            [ ctx.accounts.member.vault,
+             ctx.accounts.member.vault_pw
+            ]
         }
     };
     // Check the vaults given are corrrect.
-    if &balances.vault != ctx.accounts.vault.key {
+    if memVault != *ctx.accounts.vault.key {
         return Err(CustomErrorCode::InvalidVault.into());
     }
-    if &balances.vault_pw != ctx.accounts.vault_pw.key {
+    if memVaultPw != *ctx.accounts.vault_pw.key {
         return Err(CustomErrorCode::InvalidVault.into());
     }
 
@@ -65,7 +70,8 @@ pub fn handler(ctx: Context<EndUnstake>) -> Result<()> {
         let seeds = &[
             ctx.accounts.registrar.to_account_info().key.as_ref(),
             ctx.accounts.member.to_account_info().key.as_ref(),
-            &[ctx.accounts.member.nonce],
+            &SIGNER_SEED[..],
+            &get_bump_in_seed_form(ctx.bumps.get("member_signer").unwrap())
         ];
         let signer = &[&seeds[..]];
          let cpi_ctx = CpiContext::new_with_signer(

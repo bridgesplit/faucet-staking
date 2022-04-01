@@ -28,7 +28,7 @@ pub struct WithdrawLocked<'info> {
         seeds = [
             registrar.to_account_info().key.as_ref(),
             member.to_account_info().key.as_ref(),
-            &[member.nonce],
+            SIGNER_SEED
         ],
         bump
     )]
@@ -49,8 +49,7 @@ pub struct WithdrawLocked<'info> {
 pub fn handler(ctx: Context<WithdrawLocked>, amount: u64) -> Result<()> {
         let seeds = &[
             ctx.accounts.registrar.to_account_info().key.as_ref(),
-            ctx.accounts.member.to_account_info().key.as_ref(),
-            &[ctx.accounts.member.nonce],
+            ctx.accounts.member.to_account_info().key.as_ref()
         ];
         let signer = &[&seeds[..]];
         let cpi_accounts = Transfer {

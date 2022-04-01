@@ -35,7 +35,19 @@ pub struct Member {
     /// entities. Used as a proof to reward vendors that the Member account
     /// was staked at a given point in time.
     pub last_stake_ts: i64,
-    /// Signer nonce.
-    pub nonce: u8,
+    pub spt: Pubkey,
+    pub locked_spt: Pubkey,
+
+    pub vault: Pubkey,
+
+    pub vault_stake: Pubkey,
+
+    pub vault_pw: Pubkey,
+
+    pub locked_vault: Pubkey,
+
+    pub locked_vault_stake: Pubkey,
+
+    pub locked_vault_pw: Pubkey
 }
 

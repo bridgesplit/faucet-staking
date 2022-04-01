@@ -15,10 +15,10 @@ pub mod utils;
 use instructions::*;
 
 
-declare_id!("WRDwvUg93dDeMi9A1UqgHUEXrEZVnZ1aNUhf5uZwtEX");
+declare_id!("hRWpooyR8zTdnVs21V5b3pGHFqbkuvfgboY7KRAT2u7");
 
 #[program]
-mod registry {
+mod nft_faucet_staking {
     use super::*;
 
     pub fn claim_locked_reward<'a, 'b, 'c, 'info>(ctx:Context<'a, 'b, 'c, 'info, ClaimRewardLocked<'info>>, nonce: u8) -> Result<()> {
@@ -29,8 +29,8 @@ mod registry {
         instructions::claim_reward::unlocked_handler(ctx)
     }
 
-    pub fn create_member(ctx: Context<CreateMember>, nonce: u8, hash: String) -> Result<()> {
-        instructions::create_member::handler(ctx, nonce, hash)
+    pub fn create_member(ctx: Context<CreateMember>, hash: String) -> Result<()> {
+        instructions::create_member::handler(ctx, hash)
     }
     pub fn deposit_locked(ctx: Context<DepositLocked>, amount: u64) -> Result<()> {
         instructions::deposit_locked::handler(ctx, amount)
@@ -40,8 +40,8 @@ mod registry {
         instructions::deposit::handler(ctx, amount)
     }
 
-    pub fn drop_reward(ctx: Context<DropReward>, kind: RewardVendorKind, total: u64, expiry_ts: i64, expiry_receiver: Pubkey, nonce: u8) -> Result<()> {
-        instructions::drop_reward::handler(ctx, kind, total, expiry_ts, expiry_receiver, nonce)
+    pub fn drop_reward(ctx: Context<DropReward>, kind: RewardVendorKind, total: u64, expiry_ts: i64, expiry_receiver: Pubkey) -> Result<()> {
+        instructions::drop_reward::handler(ctx, kind, total, expiry_ts, expiry_receiver)
     }
 
     pub fn end_unstake(ctx: Context<EndUnstake>) -> Result<()> {
@@ -59,16 +59,15 @@ mod registry {
         nft_hash_3: [u8; 64],
         nft_hash_4: [u8; 64], 
         authority: Pubkey,
-        nonce: u8,
         withdrawal_timelock: i64,
         stake_rate: u64,
         reward_q_len: u32) -> Result<()> {
 
-        instructions::initialize_registrar::handler(ctx, nft_hash_0, nft_hash_1, nft_hash_2, nft_hash_3, nft_hash_4, authority, nonce, withdrawal_timelock, stake_rate, reward_q_len)
+        instructions::initialize_registrar::handler(ctx, nft_hash_0, nft_hash_1, nft_hash_2, nft_hash_3, nft_hash_4, authority, withdrawal_timelock, stake_rate, reward_q_len)
     }
 
-    pub fn stake(ctx: Context<Stake>, spt_amount: u64, locked: bool) -> Result<()> {
-        instructions::stake::handler(ctx, spt_amount, locked)
+    pub fn stake(ctx: Context<Stake>, locked: bool) -> Result<()> {
+        instructions::stake::handler(ctx, locked)
     }
 
     pub fn start_unstake(ctx: Context<StartUnstake>, spt_amount: u64, locked: bool) -> Result<()> {

@@ -1,12 +1,12 @@
 [package]
-name = "registry"
+name = "nft_faucet_staking"
 version = "0.1.0"
 description = "Created with Anchor"
 edition = "2018"
 
 [lib]
 crate-type = ["cdylib", "lib"]
-name = "staking"
+name = "nft_faucet_staking"
 
 [features]
 no-entrypoint = []

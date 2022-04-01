@@ -5,10 +5,6 @@ use crate::errors::*;
 
 
 
-
-
-
-
 // BalanceSandbox defines isolated funds that can only be deposited/withdrawn
 // into the program.
 //
@@ -17,7 +13,7 @@ use crate::errors::*;
 // stake.
 #[derive(AnchorSerialize, AnchorDeserialize, Default, Debug, Clone, PartialEq)]
 pub struct BalanceSandbox {
-    // Staking pool token.
+    // NFT Vault
     pub spt: Pubkey,
     // Free balance (deposit) vaults.
     pub vault: Pubkey,
@@ -39,37 +35,6 @@ pub enum RewardVendorKind {
     },
 }
 
-
-
-#[derive(Accounts, Clone)]
-pub struct BalanceSandboxAccounts<'info> {
-    #[account(mut)]
-    pub spt: Box<Account<'info, TokenAccount>>,
-    #[account(mut, "vault.owner == spt.owner")]
-    pub vault: Box<Account<'info, TokenAccount>>,
-    #[account(
-        mut,
-        "vault_stake.owner == spt.owner",
-        "vault_stake.mint == vault.mint"
-    )]
-    pub vault_stake: Box<Account<'info, TokenAccount>>,
-    #[account(mut, "vault_pw.owner == spt.owner", "vault_pw.mint == vault.mint")]
-    pub vault_pw: Box<Account<'info, TokenAccount>>,
-}
-
-
-impl<'info> From<&BalanceSandboxAccounts<'info>> for BalanceSandbox {
-    fn from(accs: &BalanceSandboxAccounts<'info>) -> Self {
-        Self {
-            spt: *accs.spt.to_account_info().key,
-            vault: *accs.vault.to_account_info().key,
-            vault_stake: *accs.vault_stake.to_account_info().key,
-            vault_pw: *accs.vault_pw.to_account_info().key,
-        }
-    }
-}
-
-
 #[account]
 pub struct RewardQueue {
     // Invariant: index is position of the next available slot.
@@ -86,8 +51,10 @@ impl RewardQueue {
     pub fn append(&mut self, event: RewardEvent) -> Result<u32> {
         let cursor = self.head;
 
+
         // Insert into next available slot.
         let h_idx = self.index_of(self.head);
+        
         self.events[h_idx] = event;
 
         // Update head and tail counters.
@@ -101,6 +68,9 @@ impl RewardQueue {
     }
 
     pub fn index_of(&self, counter: u32) -> usize {
+        if self.capacity() == 0 {
+            return 0;
+        }
         counter as usize % self.capacity()
     }
 
@@ -119,10 +89,11 @@ impl RewardQueue {
     pub fn tail(&self) -> u32 {
         self.tail
     }
+
 }
 
 
-#[derive(Default, Clone, Copy, Debug, AnchorSerialize, AnchorDeserialize)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Default)]
 pub struct RewardEvent {
     pub vendor: Pubkey,
     pub ts: i64,
@@ -134,7 +105,6 @@ pub struct RewardVendor {
     pub registrar: Pubkey,
     pub vault: Pubkey,
     pub mint: Pubkey,
-    pub nonce: u8,
     pub pool_token_supply: u64,
     pub reward_event_q_cursor: u32,
     pub start_ts: i64,

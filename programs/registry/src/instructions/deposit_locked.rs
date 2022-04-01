@@ -9,28 +9,28 @@ pub use ::lockup::Vesting;
 pub struct DepositLocked<'info> {
     // Lockup whitelist relay interface.
     #[account(
-        "vesting.to_account_info().owner == &registry.lockup_program",
-        "vesting.beneficiary == member.beneficiary"
+        constraint = vesting.to_account_info().owner == &registry.lockup_program,
+        constraint = vesting.beneficiary == member.beneficiary
     )]
     vesting: Box<Account<'info, Vesting>>,
-    #[account(mut, "vesting_vault.key == &vesting.vault")]
+    #[account(mut, constraint = vesting_vault.key == &vesting.vault)]
     vesting_vault: AccountInfo<'info>,
     // Note: no need to verify the depositor_authority since the SPL program
     //       will fail the transaction if it's not correct.
     #[account(signer)]
     depositor_authority: AccountInfo<'info>,
-    #[account("token_program.key == &anchor_spl::token::ID")]
+    #[account(constraint = token_program.key == &anchor_spl::token::ID)]
     token_program: AccountInfo<'info>,
     #[account(
         mut,
-        "member_vault.to_account_info().key == &member.balances_locked.vault"
+        constraint = member_vault.to_account_info().key == &member.balances_locked.vault
     )]
     member_vault: Box<Account<'info, TokenAccount>>,
     #[account(
         seeds = [
             registrar.to_account_info().key.as_ref(),
             member.to_account_info().key.as_ref(),
-            &[member.nonce],
+            SIGNER_SEED
         ],
         bump
     )]

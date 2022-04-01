@@ -4,8 +4,6 @@ use anchor_lang::prelude::*;
 pub struct Registrar {
     /// Priviledged account.
     pub authority: Pubkey,
-    /// Nonce to derive the program-derived address owning the vaults.
-    pub nonce: u8,
     /// Number of seconds that must pass for a withdrawal to complete.
     pub withdrawal_timelock: i64,
     /// Global event queue for reward vendoring.

@@ -16,7 +16,7 @@ pub struct ExpireReward<'info> {
         seeds = [
             registrar.to_account_info().key.as_ref(),
             vendor.to_account_info().key.as_ref(),
-            &[vendor.nonce],
+            SIGNER_SEED
         ],
         bump
     )]
@@ -44,7 +44,6 @@ pub fn handler(ctx: Context<ExpireReward>) -> Result<()> {
     let seeds = &[
         ctx.accounts.registrar.to_account_info().key.as_ref(),
         ctx.accounts.vendor.to_account_info().key.as_ref(),
-        &[ctx.accounts.vendor.nonce],
     ];
     let signer = &[&seeds[..]];
     let cpi_ctx = CpiContext::new_with_signer(

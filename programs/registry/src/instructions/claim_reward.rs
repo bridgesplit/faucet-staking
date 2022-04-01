@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::{state::*, errors::*};
+use crate::{state::*, errors::*, utils::*};
 use anchor_spl::{*, token::*};
 use ::lockup::*;
 
@@ -43,20 +43,61 @@ pub struct ClaimRewardCommon<'info> {
     member: Box<Account<'info, Member>>,
     #[account(signer)]
     beneficiary: AccountInfo<'info>,
-    #[account("BalanceSandbox::from(&balances) == member.balances")]
-    balances: BalanceSandboxAccounts<'info>,
-    #[account("BalanceSandbox::from(&balances_locked) == member.balances_locked")]
-    balances_locked: BalanceSandboxAccounts<'info>,
+    #[account(
+        mut,
+        constraint = spt.key() == member.spt
+       
+    )]
+    pub spt: Box<Account<'info, TokenAccount>>,
+    #[account(
+        mut,
+        constraint = locked_spt.key() == member.locked_spt
+       
+    )]
+    pub locked_spt:  Box<Account<'info, TokenAccount>>,
+    #[account(
+        mut,
+        constraint = vault.key() == member.vault
+    )]
+    pub vault: Box<Account<'info, TokenAccount>>,
+    #[account(
+        mut,
+        constraint = vault_stake.key() == member.vault_stake
+    )]
+    pub vault_stake: Box<Account<'info, TokenAccount>>,
+    #[account(
+        mut,
+        constraint = vault_pw.key() == member.vault_pw
+    )]
+    pub vault_pw: Box<Account<'info, TokenAccount>>,
+    #[account(
+        mut,
+        constraint = locked_vault.key() == member.locked_vault
+    )]
+    pub locked_vault: Box<Account<'info, TokenAccount>>,
+    #[account(
+        mut,
+        constraint = locked_vault_stake.key() == member.locked_vault_stake
+    )]
+    pub locked_vault_stake: Box<Account<'info, TokenAccount>>,
+    #[account(
+        mut,
+        constraint = locked_vault_pw.key() == member.locked_vault_pw
+    )]
+    pub locked_vault_pw: Box<Account<'info, TokenAccount>>,
     // Vendor.
-    #[account(has_one = registrar, has_one = vault)]
+    #[account(
+        has_one = registrar, 
+        constraint = vendor.vault == *vesting_vault.key
+    )]
     vendor: Box<Account<'info, RewardVendor>>,
     #[account(mut)]
-    vault: AccountInfo<'info>,
+    vesting_vault: AccountInfo<'info>,
     #[account(
         seeds = [
             registrar.to_account_info().key.as_ref(),
             vendor.to_account_info().key.as_ref(),
-            &[vendor.nonce]
+            SIGNER_SEED
         ],
         bump
 
@@ -77,7 +118,7 @@ pub struct ClaimRewardCommon<'info> {
     }
     // Reward distribution.
     let spt_total =
-        ctx.accounts.cmn.balances.spt.amount + ctx.accounts.cmn.balances_locked.spt.amount;
+        ctx.accounts.cmn.spt.amount + ctx.accounts.cmn.locked_spt.amount;
     let reward_amount = spt_total
         .checked_mul(ctx.accounts.cmn.vendor.total)
         .unwrap()
@@ -89,13 +130,14 @@ pub struct ClaimRewardCommon<'info> {
     let seeds = &[
         ctx.accounts.cmn.registrar.to_account_info().key.as_ref(),
         ctx.accounts.cmn.vendor.to_account_info().key.as_ref(),
-        &[ctx.accounts.cmn.vendor.nonce],
+        &SIGNER_SEED[..],
+        &get_bump_in_seed_form(ctx.bumps.get("vendor_signer").unwrap())
     ];
     let signer = &[&seeds[..]];
     let cpi_ctx = CpiContext::new_with_signer(
         ctx.accounts.cmn.token_program.clone(),
         token::Transfer {
-            from: ctx.accounts.cmn.vault.to_account_info(),
+            from: ctx.accounts.cmn.vesting_vault.to_account_info(),
             to: ctx.accounts.to.to_account_info(),
             authority: ctx.accounts.cmn.vendor_signer.to_account_info(),
         },
@@ -120,7 +162,7 @@ pub struct ClaimRewardCommon<'info> {
 pub struct ClaimRewardLocked<'info> {
     cmn: ClaimRewardCommon<'info>,
     registry: Account<'info, Registry>,
-    #[account("lockup_program.key == &registry.lockup_program")]
+    #[account(constraint = *lockup_program.key == registry.lockup_program)]
     lockup_program: AccountInfo<'info>,
 }
 
@@ -141,7 +183,7 @@ pub struct ClaimRewardLocked<'info> {
 
         // Reward distribution.
         let spt_total =
-            ctx.accounts.cmn.balances.spt.amount + ctx.accounts.cmn.balances_locked.spt.amount;
+            ctx.accounts.cmn.spt.amount + ctx.accounts.cmn.locked_spt.amount;
         let reward_amount = spt_total
             .checked_mul(ctx.accounts.cmn.vendor.total)
             .unwrap()
@@ -160,7 +202,8 @@ pub struct ClaimRewardLocked<'info> {
         let seeds = &[
             ctx.accounts.cmn.registrar.to_account_info().key.as_ref(),
             ctx.accounts.cmn.vendor.to_account_info().key.as_ref(),
-            &[ctx.accounts.cmn.vendor.nonce],
+            &SIGNER_SEED[..],
+            &get_bump_in_seed_form(ctx.bumps.get("vendor_signer").unwrap())
         ];
         let signer = &[&seeds[..]];
 
